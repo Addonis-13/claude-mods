@@ -1,0 +1,16 @@
+{
+  "name": "claude-mods",
+  "owner": { "name": "Addonis-13" },
+  "plugins": [
+    {
+      "name": "verdict-fin",
+      "source": "./plugins/verdict-fin",
+      "description": "Dit en un coup d'œil si la tâche demandée est terminée, s'il reste quelque chose à faire de ton côté, ou si Claude n'a pas fini."
+    },
+    {
+      "name": "be-not-afraid",
+      "source": { "source": "github", "repo": "Addonis-13/baroque-nocturne" },
+      "description": "Thème Baroque Nocturne (vit dans son propre dépôt)."
+    }
+  ]
+}
