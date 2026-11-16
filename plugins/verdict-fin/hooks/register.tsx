@@ -11,14 +11,33 @@ const CONSIGNE = `À la toute fin de chaque réponse qui clôt ton tour (pas dan
 - \`**⏳ Pas fini :** <ce qui reste, en moins de 12 mots>\` : tu n'as pas fini (travail en arrière-plan, CI qui tourne, étape que tu feras au prochain tour).
 Ne dis jamais Terminé s'il reste un commit, un push, une vérification ou une question ouverte. Cette ligne est lue par une extension qui l'affiche à l'utilisateur.`
 
+// Entre le libellé et le détail : espaces, deux-points et gras/italique (`**👉 À toi :** x`, `**👉 À toi** : x`).
+const SEP = '[\\s*_]*:?[\\s*_]*'
+
 const MOTIFS: [Verdict['kind'], RegExp][] = [
   ['fini', /^✅\s*Termin[ée]/i],
-  ['a-toi', /^👉\s*[ÀA] toi\s*:?\s*(.*)$/i],
-  ['en-cours', /^⏳\s*Pas fini\s*:?\s*(.*)$/i],
+  ['a-toi', new RegExp(`^👉\\s*[ÀA] toi${SEP}(.*)$`, 'iu')],
+  ['en-cours', new RegExp(`^⏳\\s*Pas fini${SEP}(.*)$`, 'iu')],
 ]
 
+/**
+ * Ramène une ligne à « emoji libellé détail » : sans sélecteur de variante
+ * (U+FE0F), sans puce de liste, sans code en ligne ni gras/italique autour du
+ * verdict. Les underscores à l'intérieur des mots (`test_e2e`) restent.
+ */
+function nettoyer(ligne: string): string {
+  return ligne
+    .replace(/️/g, '')
+    .replace(/`/g, '')
+    .trim()
+    .replace(/^(?:[-*+]|\d+[.)])\s+/, '')
+    .replace(/^[*_\s]+/, '')
+    .replace(/[*_\s]+$/, '')
+    .replace(/\*/g, '')
+}
+
 export function lire(answer: string): Verdict {
-  const lignes = answer.trim().split('\n').map(l => l.replace(/[`*_]/g, '').trim())
+  const lignes = answer.trim().split('\n').map(nettoyer)
   for (const ligne of lignes.slice(-3).reverse()) {
     for (const [kind, motif] of MOTIFS) {
       const m = motif.exec(ligne)
@@ -28,11 +47,10 @@ export function lire(answer: string): Verdict {
   return { kind: 'inconnu', detail: '' }
 }
 
-const LIBELLE: Record<Verdict['kind'], { icone: string; texte: string; couleur: string }> = {
+const LIBELLE: Record<Exclude<Verdict['kind'], 'inconnu'>, { icone: string; texte: string; couleur: string }> = {
   fini: { icone: '✅', texte: 'Terminé — rien à faire de ton côté', couleur: 'green' },
   'a-toi': { icone: '👉', texte: 'À toi', couleur: 'yellow' },
   'en-cours': { icone: '⏳', texte: 'Pas fini', couleur: 'cyan' },
-  inconnu: { icone: '❔', texte: 'Pas de verdict : lis la fin de la réponse', couleur: 'gray' },
 }
 
 export const register: Register = on => {
@@ -41,24 +59,37 @@ export const register: Register = on => {
     return { ...r, sections: [...r.sections, { id: 'verdict-fin:consigne', text: CONSIGNE, scope: 'session' }] }
   })
 
+  // Efface le bandeau à l'envoi. Un échec ici ne doit jamais bloquer l'envoi :
+  // l'effacement est tenté à part, et le `.catch` laisse passer le message.
   on('prompt.submit', async ($, e, next) => {
-    if (!e.isMeta && !e.command) await update($, dernier, () => null)
+    if (!e.isMeta && !e.command) {
+      try {
+        await update($, dernier, () => null)
+      } catch {
+        // Le bandeau garde l'ancien verdict : sans gravité.
+      }
+    }
     return next(e)
-  })
+  }).catch(($, e, next) => next(e))
 
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined && e.reason === 'answer') {
       const v = lire(e.answer)
-      await update($, dernier, () => v)
-      const l = LIBELLE[v.kind]
-      $.ui.toast(`${l.icone} ${l.texte}${v.detail ? ` : ${v.detail}` : ''}`, { timeoutMs: 15000 })
+      // Sans verdict, ni bandeau ni notification : rien n'est affiché.
+      if (v.kind === 'inconnu') {
+        await update($, dernier, () => null)
+      } else {
+        await update($, dernier, () => v)
+        const l = LIBELLE[v.kind]
+        $.ui.toast(`${l.icone} ${l.texte}${v.detail ? ` : ${v.detail}` : ''}`, { timeoutMs: 15000 })
+      }
     }
     return next(e)
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const v = await read($, dernier)
-    if (e.props.hasSurvey || v === null) return next(e)
+    if (e.props.hasSurvey || v === null || v.kind === 'inconnu') return next(e)
     const { Box, Text } = $.ui.resolve(e)
     const l = LIBELLE[v.kind]
     return (

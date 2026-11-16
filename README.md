@@ -19,6 +19,7 @@ claude plugin install verdict-fin@claude-mods
 
 Puis relancer Claude Code : après une réponse, le bandeau apparaît au-dessus de la saisie.
 Dans l'app (session cloud), le bandeau ne s'affiche pas ; la ligne de verdict reste dans la réponse.
+Une réponse sans ligne de verdict n'affiche rien : ni bandeau, ni notification (le bandeau du verdict précédent disparaît).
 
 ## Tester
 

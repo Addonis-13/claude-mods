@@ -1,1 +1,1 @@
-{ "name": "verdict-fin", "version": "0.1.0", "description": "Dit en un coup d'œil si la tâche demandée est terminée, s'il reste quelque chose à faire de ton côté, ou si Claude n'a pas fini.", "types": "./types/index.d.ts" }
+{ "name": "verdict-fin", "version": "0.1.1", "description": "Dit en un coup d'œil si la tâche demandée est terminée, s'il reste quelque chose à faire de ton côté, ou si Claude n'a pas fini.", "types": "./types/index.d.ts" }
